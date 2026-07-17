@@ -1,67 +1,54 @@
 pipeline {
     agent any
-
     environment {
         IMAGE_NAME = "notes-app"
         IMAGE_TAG = "v${BUILD_NUMBER}"
         CLUSTER_NAME = "notes-cluster"
         K8S_MANIFEST_DIR = "${WORKSPACE}/k8s"
     }
-
     stages {
-
-        stage('Checkout') {
-    steps {
-        dir('app-src') {
-            git branch: 'main', url: 'https://github.com/zaheer-ahmed001/notes-app.git'
+        stage('Checkout App Code') {
+            steps {
+                dir('app-src') {
+                    git branch: 'main', url: 'https://github.com/zaheer-ahmed001/notes-app.git'
+                }
+            }
         }
-    }
-}
-        }
-
         stage('Build Image') {
-    steps {
-        dir('app-src') {
-            sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+            steps {
+                dir('app-src') {
+                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                }
+            }
         }
-    }
-}
-
         stage('Load Image into Kind') {
             steps {
                 sh "kind load docker-image ${IMAGE_NAME}:${IMAGE_TAG} --name ${CLUSTER_NAME}"
             }
         }
-
         stage('Deploy to Kubernetes') {
             steps {
-                sh """
-                    sed -i 's|image: .*|image: ${IMAGE_NAME}:${IMAGE_TAG}|' ${K8S_MANIFEST_DIR}/notes-app-deployment.yaml
-                    kubectl apply -f ${K8S_MANIFEST_DIR}/postgres-deployment.yaml
-                    kubectl apply -f ${K8S_MANIFEST_DIR}/postgres-service.yaml
-                    kubectl apply -f ${K8S_MANIFEST_DIR}/notes-app-deployment.yaml
-                    kubectl apply -f ${K8S_MANIFEST_DIR}/notes-app-service.yaml
-                """
+                sh "sed -i 's|image: .*|image: ${IMAGE_NAME}:${IMAGE_TAG}|' ${K8S_MANIFEST_DIR}/notes-app-deployment.yaml"
+                sh "kubectl apply -f ${K8S_MANIFEST_DIR}/postgres-deployment.yaml"
+                sh "kubectl apply -f ${K8S_MANIFEST_DIR}/postgres-service.yaml"
+                sh "kubectl apply -f ${K8S_MANIFEST_DIR}/notes-app-deployment.yaml"
+                sh "kubectl apply -f ${K8S_MANIFEST_DIR}/notes-app-service.yaml"
             }
         }
-
         stage('Health Check') {
             steps {
-                sh """
-                    sleep 10
-                    curl -f http://localhost:30080/health || exit 1
-                """
+                sh "sleep 10"
+                sh "curl -f http://localhost:30080/health || exit 1"
             }
         }
     }
-
     post {
         failure {
-            echo "Pipeline failed — rolling back to previous deployment"
-            sh "kubectl rollout undo deployment/notes-app"
+            echo "Pipeline failed"
+            sh "kubectl rollout undo deployment/notes-app || true"
         }
         success {
-            echo "Deployment successful: ${IMAGE_NAME}:${IMAGE_TAG}"
+            echo "Deployment successful"
         }
     }
 }
