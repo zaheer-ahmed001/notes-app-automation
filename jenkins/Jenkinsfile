@@ -5,7 +5,7 @@ pipeline {
         IMAGE_NAME = "notes-app"
         IMAGE_TAG = "v${BUILD_NUMBER}"
         CLUSTER_NAME = "notes-cluster"
-        K8S_MANIFEST_DIR = "/home/ubuntu/notes-app-automation/k8s"
+        K8S_MANIFEST_DIR = "${WORKSPACE}/k8s"
     }
 
     stages {
